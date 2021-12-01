@@ -34,16 +34,17 @@ func handleList(resp http.ResponseWriter) {
 
 	if err != nil {
 		ReturnServerError(resp, err)
-	} else {
-		ReturnOKWithBodyBytes(resp, marshalledResponse)
+		return
 	}
+
+	ReturnOKWithBodyBytes(resp, marshalledResponse)
 }
 
 func handleListKey(resp http.ResponseWriter, key store.Key) {
 	entrySummary, err := store.GetEntrySummary(key)
 
 	if err == store.ErrKeyNotFound {
-		ReturnKeyNotFound(resp)
+		ReturnKeyNotFound(resp, err)
 		return
 	} else if err != nil {
 		ReturnServerError(resp, err)
@@ -54,7 +55,8 @@ func handleListKey(resp http.ResponseWriter, key store.Key) {
 
 	if marshalErr != nil {
 		ReturnServerError(resp, marshalErr)
-	} else {
-		ReturnOKWithBodyBytes(resp, marshalledResponse)
+		return
 	}
+
+	ReturnOKWithBodyBytes(resp, marshalledResponse)
 }

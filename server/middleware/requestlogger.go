@@ -47,8 +47,8 @@ func LoggingMiddleware(nextHandler http.Handler) http.Handler {
 
 		logger.LogRequest(fmt.Sprintf(
 			"Request logged TimestampUtc: %v \n\tMethod: %s \n\tURL: %s \n\tRemoteIP: %s "+
-				"\n\tResponseCode: %d \n\tDuration: %v",
-			requestTime.Format(time.RFC822),
+				"\n\tResponseCode: %d \n\tDuration: %v\n",
+			requestTime.Format(time.RFC3339),
 			req.Method,
 			req.URL.String(),
 			req.RemoteAddr,

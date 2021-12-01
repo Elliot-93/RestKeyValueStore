@@ -6,6 +6,19 @@ import (
 	"os"
 )
 
+const (
+	infoPrefix    = "INFO "
+	warningPrefix = "WARNING "
+	errorPrefix   = "ERROR "
+	fatalPrefix   = "FATAL "
+)
+
+var infoLogger *log.Logger
+var warningLogger *log.Logger
+var errorLogger *log.Logger
+var fatalLogger *log.Logger
+var requestLogger *log.Logger
+
 type Logger interface {
 	LogRequest()
 	Info(msg interface{})
@@ -19,48 +32,52 @@ const (
 	RequestsLogFile = "htaccess.log"
 )
 
+func init() {
+	infoLogger = buildLogger(infoPrefix, StandardLogFile)
+	warningLogger = buildLogger(warningPrefix, StandardLogFile)
+	errorLogger = buildLogger(errorPrefix, StandardLogFile)
+	fatalLogger = buildLogger(fatalPrefix, StandardLogFile)
+	requestLogger = buildLogger(infoPrefix, RequestsLogFile)
+}
+
 func Info(msg interface{}) {
-	logToStdOutAndFile("INFO ", msg, StandardLogFile)
+	logToStdOutAndFile(infoLogger, infoPrefix, msg)
 }
 
 func Warning(msg interface{}) {
-	logToStdOutAndFile("WARNING ", msg, StandardLogFile)
+	logToStdOutAndFile(warningLogger, warningPrefix, msg)
 }
 
 func Error(msg interface{}) {
-	logToStdOutAndFile("ERROR ", msg, StandardLogFile)
+	logToStdOutAndFile(errorLogger, errorPrefix, msg)
 }
 
 func Fatal(msg interface{}) {
-	logToStdOutAndFile("FATAL ", msg, StandardLogFile)
+	logToStdOutAndFile(fatalLogger, fatalPrefix, msg)
 }
 
 func LogRequest(requestDetails interface{}) {
-	logToStdOutAndFile("INFO ", requestDetails, RequestsLogFile)
+	logToStdOutAndFile(requestLogger, infoPrefix, requestDetails)
+}
+
+func logToStdOutAndFile(logger *log.Logger, prefix string, msg interface{}) {
+	logToStdOut(formatWithLogLevel(prefix, msg))
+	logger.Println(msg)
 }
 
 func formatWithLogLevel(prefix, msg interface{}) string {
 	return fmt.Sprintf("%s: %v", prefix, msg)
 }
-
-func logToStdOutAndFile(prefix string, msg interface{}, logFile string) {
-	logToStdOut(formatWithLogLevel(prefix, msg))
-	logToFile(prefix, msg, logFile)
-}
-
 func logToStdOut(msg interface{}) {
 	fmt.Println(msg)
 }
 
-func logToFile(prefix string, message interface{}, logfile string) {
+func buildLogger(prefix string, logfile string) *log.Logger {
 	file, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
 
-	logger := log.New(file, prefix, log.Ldate|log.Ltime|log.Lshortfile)
-
-	logger.Println(message)
+	return log.New(file, prefix, log.Ldate|log.Ltime|log.Lshortfile)
 }

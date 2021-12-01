@@ -3,6 +3,7 @@ package endpoints
 import (
 	"RestKeyValueStore/authentication"
 	"RestKeyValueStore/store"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -38,16 +39,19 @@ func handleStorePut(resp http.ResponseWriter, req *http.Request, key store.Key, 
 		return
 	}
 
-	err := store.Put(key, store.Entry{Value: valStringBuilder.String(), Owner: user})
+	err := store.Put(key, store.Entry{Value: valStringBuilder.String(), Owner: user}, strings.EqualFold(user, authentication.Admin))
 
-	switch err {
-	case nil:
-		ReturnOK(resp)
-	case store.ErrKeyBelongsToOtherUser:
-		ReturnForbidden(resp)
-	default:
-		ReturnServerError(resp, err)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrKeyBelongsToOtherUser):
+			ReturnForbidden(resp, err)
+		default:
+			ReturnServerError(resp, err)
+		}
+		return
 	}
+
+	ReturnOK(resp)
 }
 
 func handleStoreGet(resp http.ResponseWriter, req *http.Request, key store.Key) {
@@ -61,27 +65,31 @@ func handleStoreGet(resp http.ResponseWriter, req *http.Request, key store.Key) 
 
 	value, err := store.Get(key)
 
-	switch err {
-	case nil:
-		ReturnOKWithBody(resp, value)
-	case store.ErrKeyNotFound:
-		ReturnKeyNotFound(resp)
-	default:
-		ReturnServerError(resp, err)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrKeyNotFound):
+			ReturnKeyNotFound(resp, err)
+		default:
+			ReturnServerError(resp, err)
+		}
 	}
+
+	ReturnOKWithBody(resp, value)
 }
 
 func handleStoreDelete(resp http.ResponseWriter, key store.Key, user string) {
-	err := store.Delete(key, user)
+	err := store.Delete(key, user, strings.EqualFold(user, authentication.Admin))
 
-	switch err {
-	case nil:
-		ReturnOK(resp)
-	case store.ErrKeyNotFound:
-		ReturnKeyNotFound(resp)
-	case store.ErrKeyBelongsToOtherUser:
-		ReturnForbidden(resp)
-	default:
-		ReturnServerError(resp, err)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrKeyNotFound):
+			ReturnKeyNotFound(resp, err)
+		case errors.Is(err, store.ErrKeyBelongsToOtherUser):
+			ReturnForbidden(resp, err)
+		default:
+			ReturnServerError(resp, err)
+		}
 	}
+
+	ReturnOK(resp)
 }

@@ -3,12 +3,15 @@ package endpoints
 import (
 	"RestKeyValueStore/authentication"
 	"RestKeyValueStore/server"
+	"errors"
 	"net/http"
 )
 
 type ShutdownHandler struct{}
 
 const ShutdownRoute = "/shutdown"
+
+var ErrNonAdminRequestedShutdown = errors.New("non admin requested shutdown")
 
 func (h ShutdownHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	resp.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -20,7 +23,7 @@ func (h ShutdownHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) 
 			ReturnOK(resp)
 			server.Shutdown()
 		} else {
-			ReturnForbidden(resp)
+			ReturnForbidden(resp, ErrNonAdminRequestedShutdown)
 			return
 		}
 	default:

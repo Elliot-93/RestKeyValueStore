@@ -24,10 +24,11 @@ type kvsResult struct {
 }
 
 type kvsRequest struct {
-	requestType string
-	key         Key
-	entry       Entry
-	resultChan  chan kvsResult
+	requestType   string
+	key           Key
+	entry         Entry
+	adminOverride bool
+	resultChan    chan kvsResult
 }
 
 type Key string
@@ -62,10 +63,10 @@ func requestListener() {
 				entry, err := get(req.key)
 				req.resultChan <- kvsResult{entry: entry, err: err}
 			case PutReq:
-				err := put(req.key, req.entry)
+				err := put(req.key, req.entry, req.adminOverride)
 				req.resultChan <- kvsResult{err: err}
 			case DeleteReq:
-				err := deleteFromStore(req.key, req.entry.Owner)
+				err := deleteFromStore(req.key, req.entry.Owner, req.adminOverride)
 				req.resultChan <- kvsResult{err: err}
 			case GetAllSummariesReq:
 				entrySummaries := getAllEntrySummaries()
@@ -82,27 +83,34 @@ func requestListener() {
 	}()
 }
 
-func Put(key Key, entry Entry) error {
+func Put(key Key, entry Entry, adminOverride bool) error {
 	lazyInit()
 	resultChan := make(chan kvsResult)
 	kvsStore.kvsRequestChannel <- kvsRequest{
-		requestType: PutReq,
-		key:         key,
-		entry:       entry,
-		resultChan:  resultChan}
+		requestType:   PutReq,
+		key:           key,
+		entry:         entry,
+		adminOverride: adminOverride,
+		resultChan:    resultChan}
 	result := <-resultChan
 	return result.err
 }
 
-func put(key Key, entry Entry) error {
+func put(key Key, entry Entry, adminOverride bool) error {
 	existingEntry, keyPresent := kvsStore.store[key]
 
-	if !keyPresent || entry.Owner == existingEntry.Owner {
+	if keyPresent && adminOverride {
+		entry.Owner = existingEntry.Owner
 		kvsStore.store[key] = entry
 		return nil
 	}
 
-	return ErrKeyBelongsToOtherUser
+	if keyPresent && entry.Owner != existingEntry.Owner {
+		return ErrKeyBelongsToOtherUser
+	}
+
+	kvsStore.store[key] = entry
+	return nil
 }
 
 func Get(key Key) (string, error) {
@@ -123,26 +131,27 @@ func get(key Key) (Entry, error) {
 	return entry, nil
 }
 
-func Delete(key Key, owner string) error {
+func Delete(key Key, owner string, adminOverride bool) error {
 	lazyInit()
 	resultChan := make(chan kvsResult)
 	kvsStore.kvsRequestChannel <- kvsRequest{
-		requestType: DeleteReq,
-		key:         key,
-		entry:       Entry{Owner: owner},
-		resultChan:  resultChan}
+		requestType:   DeleteReq,
+		key:           key,
+		entry:         Entry{Owner: owner},
+		adminOverride: adminOverride,
+		resultChan:    resultChan}
 	result := <-resultChan
 	return result.err
 }
 
-func deleteFromStore(key Key, owner string) error {
+func deleteFromStore(key Key, owner string, adminOverride bool) error {
 	entry, keyPresent := kvsStore.store[key]
 
 	if !keyPresent {
 		return ErrKeyNotFound
 	}
 
-	if entry.Owner != owner {
+	if entry.Owner != owner && !adminOverride {
 		return ErrKeyBelongsToOtherUser
 	}
 

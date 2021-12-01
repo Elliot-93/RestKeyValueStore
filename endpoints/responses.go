@@ -15,7 +15,8 @@ func ReturnServerError(resp http.ResponseWriter, err error) {
 	resp.WriteHeader(http.StatusInternalServerError)
 }
 
-func ReturnForbidden(resp http.ResponseWriter) {
+func ReturnForbidden(resp http.ResponseWriter, err error) {
+	logger.Warning(err)
 	resp.WriteHeader(http.StatusForbidden)
 	resp.Write([]byte("Forbidden"))
 }
@@ -35,7 +36,8 @@ func ReturnOKWithBodyBytes(resp http.ResponseWriter, body []byte) {
 	resp.Write(body)
 }
 
-func ReturnKeyNotFound(resp http.ResponseWriter) {
+func ReturnKeyNotFound(resp http.ResponseWriter, err error) {
+	logger.Warning(err)
 	resp.WriteHeader(http.StatusNotFound)
 	resp.Write([]byte("404 key not found"))
 }
