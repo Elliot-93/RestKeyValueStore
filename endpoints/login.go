@@ -31,13 +31,13 @@ func handleLogin(resp http.ResponseWriter, req *http.Request) {
 		resp.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	expectedPassword, ok := authentication.UsersAndPasswords[username]
+
 	if !ok {
 		logger.Error(fmt.Sprintf("Error Unknown User: %s", username))
 		resp.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	if password != expectedPassword {
+	if !authentication.CheckPassword(username, password) {
 		logger.Error(fmt.Sprintf("Password provided is incorrect: %s", username))
 		resp.WriteHeader(http.StatusUnauthorized)
 		return

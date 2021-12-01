@@ -2,8 +2,6 @@
 // Only the owner of a key can modify that entries.
 package store
 
-//todo: multiple queues with different request types funneled into 1?
-
 import (
 	"RestKeyValueStore/logger"
 	"errors"
