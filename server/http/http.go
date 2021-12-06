@@ -1,6 +1,7 @@
-package server
+package http
 
 import (
+	"RestKeyValueStore/config"
 	"RestKeyValueStore/logger"
 	"context"
 	"fmt"
@@ -12,7 +13,9 @@ import (
 var srv *http.Server
 var shutdownSrv context.CancelFunc
 
-func Startup(port int, mux *http.ServeMux) {
+func Startup(mux *http.ServeMux) {
+	port := config.Read().Port
+
 	srv = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: mux}
@@ -22,7 +25,7 @@ func Startup(port int, mux *http.ServeMux) {
 	defer shutdownSrv()
 
 	go func() {
-		logger.Info(fmt.Sprintf("Server started up on port: %d", port))
+		logger.Info(fmt.Sprintf("HTTP Server started up on port: %d", port))
 
 		err := srv.ListenAndServe()
 

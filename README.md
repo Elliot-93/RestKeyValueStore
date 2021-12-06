@@ -38,11 +38,11 @@ of the exercise.
 The store will be started with the command:
 
 ```bash
-./store --port <port>
+./store --httpPort <httpPort>
 ```
 
-Where `<port>` will be the port to bind to. Failure to parse the `<port>` should
-yield an exit code `-1`. Failure to bind to the `<port>` should yield and exit
+Where `<httpPort>` will be the httpPort to bind to. Failure to parse the `<httpPort>` should
+yield an exit code `-1`. Failure to bind to the `<httpPort>` should yield and exit
 code `-2`.
 
 ### Logging
@@ -347,7 +347,7 @@ key eviction.
 Startup will have a new flag:
 
 ```shell
-./store --port <port> --depth <depth>
+./store --httpPort <httpPort> --depth <depth>
 ```
 
 `<depth>` will be the number of keys the store can retain. If the store is

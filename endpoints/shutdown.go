@@ -2,7 +2,7 @@ package endpoints
 
 import (
 	"RestKeyValueStore/authentication"
-	"RestKeyValueStore/server"
+	http2 "RestKeyValueStore/server/http"
 	"errors"
 	"net/http"
 )
@@ -21,7 +21,7 @@ func (h ShutdownHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) 
 	case http.MethodGet:
 		if user == authentication.Admin {
 			ReturnOK(resp)
-			server.Shutdown()
+			http2.Shutdown()
 		} else {
 			ReturnForbidden(resp, ErrNonAdminRequestedShutdown)
 			return

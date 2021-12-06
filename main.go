@@ -1,37 +1,47 @@
 package main
 
 import (
+	"RestKeyValueStore/config"
 	"RestKeyValueStore/endpoints"
-	"RestKeyValueStore/server"
+	"RestKeyValueStore/server/http"
 	"RestKeyValueStore/server/middleware"
+	"RestKeyValueStore/server/tcp"
 	"flag"
 	"fmt"
-	"net/http"
+	netHttp "net/http"
 	"os"
 )
 
 func main() {
-	var port int
+	var httpPort int
+	var tcpPort int
+	var depth int
 
 	fmt.Println(os.Args)
 
-	flag.IntVar(&port, "port", 8080, "port to listen on")
+	flag.IntVar(&httpPort, "httpPort", 8080, "httpPort to listen on")
+	flag.IntVar(&tcpPort, "tcpPort", 8090, "tcpPort to listen on")
+	flag.IntVar(&depth, "depth", 100, "httpPort to listen on")
 	flag.Parse()
 
-	router := http.NewServeMux()
+	config.Populate(httpPort, depth)
+
+	router := netHttp.NewServeMux()
 
 	for path, routeDetail := range endpoints.Routes {
 		if routeDetail.AuthRequired {
 			router.Handle(path,
-				middleware.LoggingMiddleware(
-					middleware.PanicHandler(
+				middleware.PanicHandler(
+					middleware.LoggingMiddleware(
 						middleware.Authenticate(routeDetail.Handler))))
 		} else {
 			router.Handle(path,
-				middleware.LoggingMiddleware(
-					middleware.PanicHandler(routeDetail.Handler)))
+				middleware.PanicHandler(
+					middleware.LoggingMiddleware(routeDetail.Handler)))
 		}
 	}
 
-	server.Startup(port, router)
+	go tcp.Startup(tcpPort)
+
+	http.Startup(router)
 }
