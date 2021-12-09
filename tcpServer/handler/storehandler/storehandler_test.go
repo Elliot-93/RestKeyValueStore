@@ -2,8 +2,8 @@ package storehandler
 
 import (
 	"RestKeyValueStore/store"
+	"RestKeyValueStore/tcpServer/tcpreader"
 	"bytes"
-	"io"
 	"testing"
 )
 
@@ -32,7 +32,7 @@ func (s *spyStore) Delete(key store.Key) error {
 
 func TestHandlePut(t *testing.T) {
 	type args struct {
-		r io.Reader
+		r tcpreader.TcpReader
 		s spyStore
 	}
 	tests := []struct {
@@ -43,43 +43,19 @@ func TestHandlePut(t *testing.T) {
 	}{
 		{
 			name:                   "no key returns err",
-			args:                   args{r: bytes.NewBuffer([]byte("")), s: spyStore{}},
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte(""))), s: spyStore{}},
 			want:                   "err",
 			expectedPutInvocations: 0,
 		},
 		{
-			name:                   "Key p1 not an int returns err",
-			args:                   args{r: bytes.NewBuffer([]byte("a")), s: spyStore{}},
-			want:                   "err",
-			expectedPutInvocations: 0,
-		},
-		{
-			name:                   "Key p2 not provided returns err",
-			args:                   args{r: bytes.NewBuffer([]byte("1")), s: spyStore{}},
-			want:                   "err",
-			expectedPutInvocations: 0,
-		},
-		{
-			name:                   "Key p2 not an int returns err",
-			args:                   args{r: bytes.NewBuffer([]byte("1a")), s: spyStore{}},
-			want:                   "err",
-			expectedPutInvocations: 0,
-		},
-		{
-			name:                   "Key p3 not provided returns err",
-			args:                   args{r: bytes.NewBuffer([]byte("11")), s: spyStore{}},
-			want:                   "err",
-			expectedPutInvocations: 0,
-		},
-		{
-			name:                   "Value in invalid format",
-			args:                   args{r: bytes.NewBuffer([]byte("11kinvalid")), s: spyStore{}},
+			name:                   "no value in invalid format",
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k"))), s: spyStore{}},
 			want:                   "err",
 			expectedPutInvocations: 0,
 		},
 		{
 			name:                   "Valid command",
-			args:                   args{r: bytes.NewBuffer([]byte("11k11v")), s: spyStore{}},
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k11v"))), s: spyStore{}},
 			want:                   "ack",
 			expectedPutInvocations: 1,
 		},
@@ -99,7 +75,7 @@ func TestHandlePut(t *testing.T) {
 
 func TestHandleGet(t *testing.T) {
 	type args struct {
-		r io.Reader
+		r tcpreader.TcpReader
 		s spyStore
 	}
 	tests := []struct {
@@ -110,19 +86,37 @@ func TestHandleGet(t *testing.T) {
 	}{
 		{
 			name:                   "Key in invalid format",
-			args:                   args{r: bytes.NewBuffer([]byte("invalid")), s: spyStore{}},
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("invalid"))), s: spyStore{}},
 			want:                   "err",
 			expectedGetInvocations: 0,
 		},
 		{
 			name:                   "Get returns error return nil",
-			args:                   args{r: bytes.NewBuffer([]byte("11k11v")), s: spyStore{getErr: store.ErrKeyNotFound}},
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k0"))), s: spyStore{getErr: store.ErrKeyNotFound}},
 			want:                   "nil",
 			expectedGetInvocations: 1,
 		},
 		{
+			name:                   "variable length param not set returns err",
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k"))), s: spyStore{}},
+			want:                   "err",
+			expectedGetInvocations: 0,
+		},
+		{
+			name:                   "variable length param more than value length full value returned",
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k210"))), s: spyStore{getResult: "value"}},
+			want:                   "val15value",
+			expectedGetInvocations: 1,
+		},
+		{
+			name:                   "variable length param less than value length truncated value returned",
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k13"))), s: spyStore{getResult: "value"}},
+			want:                   "val13val",
+			expectedGetInvocations: 1,
+		},
+		{
 			name:                   "Valid command",
-			args:                   args{r: bytes.NewBuffer([]byte("11k11v")), s: spyStore{getResult: "value"}},
+			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k0"))), s: spyStore{getResult: "value"}},
 			want:                   "val15value",
 			expectedGetInvocations: 1,
 		},
@@ -142,7 +136,7 @@ func TestHandleGet(t *testing.T) {
 
 func TestHandleDelete(t *testing.T) {
 	type args struct {
-		r io.Reader
+		r tcpreader.TcpReader
 		s spyStore
 	}
 	tests := []struct {
@@ -153,19 +147,19 @@ func TestHandleDelete(t *testing.T) {
 	}{
 		{
 			name:                      "Key in invalid format",
-			args:                      args{r: bytes.NewBuffer([]byte("invalid")), s: spyStore{}},
+			args:                      args{r: tcpreader.New(bytes.NewBuffer([]byte("invalid"))), s: spyStore{}},
 			want:                      "err",
 			expectedDeleteInvocations: 0,
 		},
 		{
 			name:                      "Delete returns err still ack",
-			args:                      args{r: bytes.NewBuffer([]byte("11k11v")), s: spyStore{deleteErr: store.ErrKeyNotFound}},
+			args:                      args{r: tcpreader.New(bytes.NewBuffer([]byte("11k11v"))), s: spyStore{deleteErr: store.ErrKeyNotFound}},
 			want:                      "ack",
 			expectedDeleteInvocations: 1,
 		},
 		{
 			name:                      "Valid command",
-			args:                      args{r: bytes.NewBuffer([]byte("11k11v")), s: spyStore{}},
+			args:                      args{r: tcpreader.New(bytes.NewBuffer([]byte("11k11v"))), s: spyStore{}},
 			want:                      "ack",
 			expectedDeleteInvocations: 1,
 		},

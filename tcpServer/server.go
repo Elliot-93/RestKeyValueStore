@@ -4,7 +4,7 @@ import (
 	"RestKeyValueStore/logger"
 	"RestKeyValueStore/store"
 	"RestKeyValueStore/tcpServer/handler/storehandler"
-	"RestKeyValueStore/tcpServer/reader"
+	"RestKeyValueStore/tcpServer/tcpreader"
 	"fmt"
 	"io"
 	"net"
@@ -43,8 +43,10 @@ func Startup(port int, kvs store.KeyValueStore) {
 func handleConnection(rwc io.ReadWriteCloser, kvs store.KeyValueStore) {
 	defer func() { _ = rwc.Close() }()
 
+	tcpReader := tcpreader.New(rwc)
+
 	for {
-		verb, err := reader.ReadBytes(rwc, 3)
+		verb, err := tcpReader.ParseVerb()
 		if err != nil {
 			return
 		}
@@ -53,11 +55,11 @@ func handleConnection(rwc io.ReadWriteCloser, kvs store.KeyValueStore) {
 
 		switch strings.ToLower(verb) {
 		case "put":
-			response = storehandler.HandlePut(rwc, kvs)
+			response = storehandler.HandlePut(tcpReader, kvs)
 		case "get":
-			response = storehandler.HandleGet(rwc, kvs)
+			response = storehandler.HandleGet(tcpReader, kvs)
 		case "del":
-			response = storehandler.HandleDelete(rwc, kvs)
+			response = storehandler.HandleDelete(tcpReader, kvs)
 		case "bye":
 			return
 		default:
