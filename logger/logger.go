@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -17,7 +19,6 @@ var infoLogger *log.Logger
 var warningLogger *log.Logger
 var errorLogger *log.Logger
 var fatalLogger *log.Logger
-var requestLogger *log.Logger
 
 type Logger interface {
 	LogRequest()
@@ -37,7 +38,6 @@ func init() {
 	warningLogger = buildLogger(warningPrefix, StandardLogFile)
 	errorLogger = buildLogger(errorPrefix, StandardLogFile)
 	fatalLogger = buildLogger(fatalPrefix, StandardLogFile)
-	requestLogger = buildLogger(infoPrefix, RequestsLogFile)
 }
 
 func Info(msg interface{}) {
@@ -56,24 +56,20 @@ func Fatal(msg interface{}) {
 	logToStdOutAndFile(fatalLogger, fatalPrefix, msg)
 }
 
-func LogRequest(requestDetails interface{}) {
-	logToStdOutAndFile(requestLogger, infoPrefix, requestDetails)
-}
-
 func logToStdOutAndFile(logger *log.Logger, prefix string, msg interface{}) {
-	logToStdOut(formatWithLogLevel(prefix, msg))
+	logToStdOut(fmt.Sprintf("%s: %v", prefix, msg))
 	logger.Println(msg)
 }
 
-func formatWithLogLevel(prefix, msg interface{}) string {
-	return fmt.Sprintf("%s: %v", prefix, msg)
-}
 func logToStdOut(msg interface{}) {
 	fmt.Println(msg)
 }
 
 func buildLogger(prefix string, logfile string) *log.Logger {
-	file, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	_, b, _, _ := runtime.Caller(0)
+	basePath := filepath.Dir(b)
+
+	file, err := os.OpenFile(basePath+"\\"+logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 
 	if err != nil {
 		log.Fatal(err)

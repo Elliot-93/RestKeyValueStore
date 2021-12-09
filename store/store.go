@@ -1,5 +1,4 @@
-// Package store a concurrent key entries store in which each key has an owner.
-// Only the owner of a key can modify that entries.
+// Package store. A concurrent key entries store.
 package store
 
 import (
@@ -7,71 +6,66 @@ import (
 	"errors"
 )
 
-const (
-	GetReq             = "Get"
-	GetAllSummariesReq = "GetAllSummaries"
-	GetSummaryReq      = "GetSummary"
-	PutReq             = "Put"
-	DeleteReq          = "Delete"
-)
+type Key string
+type Entry string
 
 type kvsResult struct {
-	entry          Entry
-	entrySummaries []EntrySummary
-	err            error
+	entry Entry
+	err   error
 }
 
 type kvsRequest struct {
-	requestType   string
-	key           Key
-	entry         Entry
-	adminOverride bool
-	resultChan    chan kvsResult
+	requestType string
+	key         Key
+	entry       Entry
+	resultChan  chan kvsResult
 }
 
-type Key string
-
-type keyValueStore struct {
+type KeyValueStore struct {
 	store             map[Key]Entry
 	kvsRequestChannel chan kvsRequest
-	initialized       bool
 }
 
+const (
+	GetReq    = "Get"
+	PutReq    = "Put"
+	DeleteReq = "Delete"
+)
+
 var (
-	kvsStore                  keyValueStore
-	ErrKeyNotFound            = errors.New("entries not present for key")
-	ErrKeyBelongsToOtherUser  = errors.New("key added by a different owner")
+	ErrKeyNotFound            = errors.New("entry not present for key")
 	ErrUnsupportedStoreAction = errors.New("unsupported store action requested")
 )
 
-func lazyInit() {
-	if !kvsStore.initialized {
-		kvsStore.store = map[Key]Entry{}
-		kvsStore.kvsRequestChannel = make(chan kvsRequest)
-		kvsStore.initialized = true
-		requestListener()
-	}
+type Store interface {
+	Put(key Key, entry Entry)
+	Get(key Key) (string, error)
+	Delete(key Key) error
 }
 
-func requestListener() {
+func New() KeyValueStore {
+	kvs := KeyValueStore{
+		store:             map[Key]Entry{},
+		kvsRequestChannel: make(chan kvsRequest)}
+
+	kvs.startRequestListener()
+
+	return kvs
+}
+
+func (kvs KeyValueStore) startRequestListener() {
 	go func() {
-		for req := range kvsStore.kvsRequestChannel {
+		for req := range kvs.kvsRequestChannel {
 			switch req.requestType {
 			case GetReq:
-				entry, err := get(req.key)
+				entry, err := kvs.get(req.key)
 				req.resultChan <- kvsResult{entry: entry, err: err}
 			case PutReq:
-				err := put(req.key, req.entry, req.adminOverride)
-				req.resultChan <- kvsResult{err: err}
+				kvs.put(req.key, req.entry)
+				req.resultChan <- kvsResult{}
 			case DeleteReq:
-				err := deleteFromStore(req.key, req.entry.Owner, req.adminOverride)
+				err := kvs.delete(req.key)
 				req.resultChan <- kvsResult{err: err}
-			case GetAllSummariesReq:
-				entrySummaries := getAllEntrySummaries()
-				req.resultChan <- kvsResult{entrySummaries: entrySummaries}
-			case GetSummaryReq:
-				entrySummary, err := getEntrySummary(req.key)
-				req.resultChan <- kvsResult{entrySummaries: []EntrySummary{entrySummary}, err: err}
 			default:
 				logger.Error("")
 				req.resultChan <- kvsResult{err: ErrUnsupportedStoreAction}
@@ -81,121 +75,57 @@ func requestListener() {
 	}()
 }
 
-func Put(key Key, entry Entry, adminOverride bool) error {
-	lazyInit()
+func (kvs KeyValueStore) Put(key Key, entry Entry) {
 	resultChan := make(chan kvsResult)
-	kvsStore.kvsRequestChannel <- kvsRequest{
-		requestType:   PutReq,
-		key:           key,
-		entry:         entry,
-		adminOverride: adminOverride,
-		resultChan:    resultChan}
-	result := <-resultChan
-	return result.err
+	kvs.kvsRequestChannel <- kvsRequest{
+		requestType: PutReq,
+		key:         key,
+		entry:       entry,
+		resultChan:  resultChan}
+	<-resultChan
 }
 
-func put(key Key, entry Entry, adminOverride bool) error {
-	existingEntry, keyPresent := kvsStore.store[key]
-
-	if keyPresent && adminOverride {
-		entry.Owner = existingEntry.Owner
-		kvsStore.store[key] = entry
-		return nil
-	}
-
-	if keyPresent && entry.Owner != existingEntry.Owner {
-		return ErrKeyBelongsToOtherUser
-	}
-
-	kvsStore.store[key] = entry
-	return nil
+func (kvs KeyValueStore) put(key Key, entry Entry) {
+	kvs.store[key] = entry
 }
 
-func Get(key Key) (string, error) {
-	lazyInit()
+func (kvs KeyValueStore) Get(key Key) (string, error) {
 	resultChan := make(chan kvsResult)
-	kvsStore.kvsRequestChannel <- kvsRequest{requestType: GetReq, key: key, resultChan: resultChan}
+	kvs.kvsRequestChannel <- kvsRequest{requestType: GetReq, key: key, resultChan: resultChan}
 	result := <-resultChan
-	return result.entry.Value, result.err
+	return string(result.entry), result.err
 }
 
-func get(key Key) (Entry, error) {
-	entry, keyPresent := kvsStore.store[key]
+func (kvs KeyValueStore) get(key Key) (Entry, error) {
+	entry, keyPresent := kvs.store[key]
 
 	if !keyPresent {
-		return Entry{}, ErrKeyNotFound
+		logger.Warning(ErrKeyNotFound)
+		return "", ErrKeyNotFound
 	}
 
 	return entry, nil
 }
 
-func Delete(key Key, owner string, adminOverride bool) error {
-	lazyInit()
+func (kvs KeyValueStore) Delete(key Key) error {
 	resultChan := make(chan kvsResult)
-	kvsStore.kvsRequestChannel <- kvsRequest{
-		requestType:   DeleteReq,
-		key:           key,
-		entry:         Entry{Owner: owner},
-		adminOverride: adminOverride,
-		resultChan:    resultChan}
+	kvs.kvsRequestChannel <- kvsRequest{
+		requestType: DeleteReq,
+		key:         key,
+		entry:       "",
+		resultChan:  resultChan}
 	result := <-resultChan
 	return result.err
 }
 
-func deleteFromStore(key Key, owner string, adminOverride bool) error {
-	entry, keyPresent := kvsStore.store[key]
+func (kvs KeyValueStore) delete(key Key) error {
+	_, keyPresent := kvs.store[key]
 
 	if !keyPresent {
+		logger.Warning(ErrKeyNotFound)
 		return ErrKeyNotFound
 	}
 
-	if entry.Owner != owner && !adminOverride {
-		return ErrKeyBelongsToOtherUser
-	}
-
-	delete(kvsStore.store, key)
+	delete(kvs.store, key)
 	return nil
-}
-
-func GetAllEntrySummaries() []EntrySummary {
-	lazyInit()
-	resultChan := make(chan kvsResult)
-	kvsStore.kvsRequestChannel <- kvsRequest{requestType: GetAllSummariesReq, resultChan: resultChan}
-	result := <-resultChan
-	return result.entrySummaries
-}
-
-func getAllEntrySummaries() []EntrySummary {
-	lazyInit()
-	var entrySummaries []EntrySummary
-
-	for k, v := range kvsStore.store {
-		entrySummaries = append(entrySummaries, EntrySummary{Key: string(k), Owner: v.Owner})
-	}
-
-	return entrySummaries
-}
-
-func GetEntrySummary(key Key) (EntrySummary, error) {
-	lazyInit()
-	resultChan := make(chan kvsResult)
-	kvsStore.kvsRequestChannel <- kvsRequest{requestType: GetSummaryReq, key: key, resultChan: resultChan}
-	result := <-resultChan
-
-	if result.entrySummaries != nil {
-		return result.entrySummaries[0], result.err
-	} else {
-		return EntrySummary{}, result.err
-	}
-}
-
-func getEntrySummary(key Key) (EntrySummary, error) {
-	lazyInit()
-	entry, keyPresent := kvsStore.store[key]
-
-	if !keyPresent {
-		return EntrySummary{}, ErrKeyNotFound
-	}
-
-	return EntrySummary{Key: string(key), Owner: entry.Owner}, nil
 }
