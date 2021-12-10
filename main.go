@@ -1,6 +1,7 @@
 package main
 
 import (
+	distributionServer "RestKeyValueStore/distribution/server"
 	"RestKeyValueStore/store"
 	"RestKeyValueStore/tcpServer"
 	"flag"
@@ -17,6 +18,8 @@ func main() {
 	flag.Parse()
 
 	kvs := store.New()
+
+	go distributionServer.Startup(kvs)
 
 	tcpServer.Startup(tcpPort, kvs)
 }

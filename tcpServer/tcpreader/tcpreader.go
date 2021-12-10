@@ -79,6 +79,23 @@ func (r *TcpReader) Parse3PartArgument() (string, error) {
 	return arg, nil
 }
 
+func (r TcpReader) ParseKeyValueArgs() (string, string, error) {
+	var key, value string
+	var err error
+
+	key, err = r.Parse3PartArgument()
+	if err != nil {
+		return key, value, err
+	}
+
+	value, err = r.Parse3PartArgument()
+	if err != nil {
+		return key, value, err
+	}
+
+	return key, value, nil
+}
+
 func (r TcpReader) ParseResponseLengthArg() (int, error) {
 	lenOfLenArgString, err := r.ReadBytes(1)
 	if err != nil {

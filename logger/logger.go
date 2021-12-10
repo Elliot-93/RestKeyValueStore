@@ -30,7 +30,6 @@ type Logger interface {
 
 const (
 	StandardLogFile = "store.log"
-	RequestsLogFile = "htaccess.log"
 )
 
 func init() {

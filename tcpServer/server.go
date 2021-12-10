@@ -1,6 +1,8 @@
 package tcpServer
 
 import (
+	"RestKeyValueStore/arguments"
+	"RestKeyValueStore/distribution/nodes"
 	"RestKeyValueStore/logger"
 	"RestKeyValueStore/store"
 	"RestKeyValueStore/tcpServer/handler/storehandler"
@@ -55,7 +57,15 @@ func handleConnection(rwc io.ReadWriteCloser, kvs store.KeyValueStore) {
 
 		switch strings.ToLower(verb) {
 		case "put":
-			response = storehandler.HandlePut(tcpReader, kvs)
+			key, value, parseErr := tcpReader.ParseKeyValueArgs()
+			if parseErr != nil {
+				response = "err"
+			}
+
+			response = storehandler.HandlePut(key, value, kvs)
+
+			nodes.DistributeUpdate(verb + arguments.Encode(key) + arguments.Encode(value))
+
 		case "get":
 			response = storehandler.HandleGet(tcpReader, kvs)
 		case "del":

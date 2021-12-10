@@ -1,24 +1,14 @@
 package storehandler
 
 import (
+	"RestKeyValueStore/arguments"
 	"RestKeyValueStore/logger"
 	"RestKeyValueStore/store"
 	"RestKeyValueStore/tcpServer/tcpreader"
 	"fmt"
-	"strconv"
 )
 
-func HandlePut(tcpReader tcpreader.TcpReader, s store.Store) string {
-	key, err := tcpReader.Parse3PartArgument()
-	if err != nil {
-		return "err"
-	}
-
-	value, err := tcpReader.Parse3PartArgument()
-	if err != nil {
-		return "err"
-	}
-
+func HandlePut(key, value string, s store.Store) string {
 	s.Put(store.Key(key), store.Entry(value))
 	logger.Info(fmt.Sprintf("Key: %s Value: %s added to store", key, value))
 	return "ack"
@@ -46,7 +36,7 @@ func HandleGet(tcpReader tcpreader.TcpReader, s store.Store) string {
 	}
 
 	logger.Info(fmt.Sprintf("Key: %s reteived from store", key))
-	return "val" + encodeResponse(value)
+	return "val" + arguments.Encode(value)
 }
 
 func HandleDelete(tcpReader tcpreader.TcpReader, s store.Store) string {
@@ -63,10 +53,4 @@ func HandleDelete(tcpReader tcpreader.TcpReader, s store.Store) string {
 
 	logger.Info(fmt.Sprintf("Key: %s deleted from store", key))
 	return "ack"
-}
-
-func encodeResponse(response string) string {
-	var responseLength = len(response)
-	var responseLengthLength = len(strconv.Itoa(responseLength))
-	return fmt.Sprintf("%d%d%s", responseLengthLength, responseLength, response)
 }

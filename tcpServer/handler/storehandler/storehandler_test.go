@@ -32,8 +32,9 @@ func (s *spyStore) Delete(key store.Key) error {
 
 func TestHandlePut(t *testing.T) {
 	type args struct {
-		r tcpreader.TcpReader
-		s spyStore
+		key   string
+		value string
+		s     spyStore
 	}
 	tests := []struct {
 		name                   string
@@ -42,27 +43,15 @@ func TestHandlePut(t *testing.T) {
 		expectedPutInvocations int
 	}{
 		{
-			name:                   "no key returns err",
-			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte(""))), s: spyStore{}},
-			want:                   "err",
-			expectedPutInvocations: 0,
-		},
-		{
-			name:                   "no value in invalid format",
-			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k"))), s: spyStore{}},
-			want:                   "err",
-			expectedPutInvocations: 0,
-		},
-		{
 			name:                   "Valid command",
-			args:                   args{r: tcpreader.New(bytes.NewBuffer([]byte("11k11v"))), s: spyStore{}},
+			args:                   args{key: "k", value: "v", s: spyStore{}},
 			want:                   "ack",
 			expectedPutInvocations: 1,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := HandlePut(tt.args.r, &tt.args.s); got != tt.want {
+			if got := HandlePut(tt.args.key, tt.args.value, &tt.args.s); got != tt.want {
 				t.Errorf("HandlePut() = %v, want %v", got, tt.want)
 			}
 
