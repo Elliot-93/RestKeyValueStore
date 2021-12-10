@@ -10,9 +10,9 @@ var (
 	AvailablePorts = map[string]struct{}{
 		"3001": {},
 		"3002": {},
-		"3003": {},
-		"3004": {},
-		"3005": {},
+		//"3003": {},
+		//"3004": {},
+		//"3005": {},
 	}
 	ActiveNodeConnections map[string]net.Conn
 	ListingPort           string

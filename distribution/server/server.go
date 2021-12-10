@@ -62,8 +62,6 @@ func Startup(kvs store.KeyValueStore) {
 func tryConnectToNode(port string) {
 	c, err := net.Dial("tcp", "localhost:"+port)
 
-	reader := tcpreader.New(c)
-
 	if err != nil {
 		logger.Info(fmt.Sprintf("port %s not active err: %v", port, err))
 		return
@@ -74,7 +72,10 @@ func tryConnectToNode(port string) {
 		return
 	}
 
-	if resp, readErr := reader.ReadBytes(3); readErr != nil || resp != "ack" {
+	resp := make([]byte, 3)
+	_, readErr := c.Read(resp)
+
+	if readErr != nil || string(resp) != "ack" {
 		logger.Error(fmt.Sprintf("response should be ack but got: %s", resp))
 		return
 	}
